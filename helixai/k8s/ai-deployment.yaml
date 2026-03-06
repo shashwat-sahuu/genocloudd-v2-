@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-interpreter
+  namespace: bioinformatics
+  labels:
+    app: genocloudd
+    component: ai-service
+spec:
+  replicas: 3             # 3 pods for high availability
+  selector:
+    matchLabels:
+      app: ai-interpreter
+  template:
+    metadata:
+      labels:
+        app: ai-interpreter
+    spec:
+      containers:
+      - name: ai-service
+        image: genocloudd/ai-interpreter:1.0
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        env:
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: genocloudd-secrets
+              key: anthropic-api-key   # stored safely in K8s Secret
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-interpreter-svc
+  namespace: bioinformatics
+spec:
+  selector:
+    app: ai-interpreter
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP

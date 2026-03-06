@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gatk-variant-caller
+  namespace: bioinformatics
+  labels:
+    app: genocloudd
+    component: variant-calling
+spec:
+  parallelism: 4          # Run 4 chromosomes in parallel
+  completions: 24         # One job per chromosome
+  backoffLimit: 3         # Retry failed jobs 3 times
+  template:
+    metadata:
+      labels:
+        app: genocloudd
+        job: gatk
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: gatk
+        image: broadinstitute/gatk:4.4.0.0
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "4"
+          limits:
+            memory: "16Gi"
+            cpu: "8"
+        env:
+        - name: SAMPLE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: S3_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: genocloudd-secrets
+              key: s3-bucket
+        command: ["python", "/app/pipeline/variant_pipeline.py"]
+        volumeMounts:
+        - name: ref-genome
+          mountPath: "/ref"
+          readOnly: true
+      volumes:
+      - name: ref-genome
+        persistentVolumeClaim:
+          claimName: hg38-pvc
