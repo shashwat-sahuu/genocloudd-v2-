@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GenoCloud v2 — AI + Kubernetes</title>
+<title>GenoCloud — AI + Kubernetes</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Cabinet+Grotesk:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -509,7 +509,7 @@
   <div class="k8s-arch">
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">GenoCloud Kubernetes Cluster</div>
     <div class="k8s-cluster">
-      <div class="cluster-label">⎈ GENOCLOUDD-CLUSTER</div>
+      <div class="cluster-label">⎈ HELIXAI-CLUSTER</div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:12px;letter-spacing:0.06em">NAMESPACE: bioinformatics</div>
       <div class="k8s-row">
         <div class="k8s-node svc-node"><div class="n-icon">🌐</div><div class="n-label">Service</div><div class="n-name">API Gateway</div></div>
@@ -637,7 +637,7 @@ client = anthropic.<span class="fn">Anthropic</span>()  <span class="cm"># uses 
     <span class="fn">spec</span>:
       <span class="fn">containers</span>:
       - <span class="fn">name</span>: ai-service
-        <span class="fn">image</span>: genocloudd/ai-interpreter:<span class="num">1.0</span>
+        <span class="fn">image</span>: helixai/ai-interpreter:<span class="num">1.0</span>
         <span class="fn">ports</span>:
         - <span class="fn">containerPort</span>: <span class="num">8080</span>
         <span class="fn">env</span>:
