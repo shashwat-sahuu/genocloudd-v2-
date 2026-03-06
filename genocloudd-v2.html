@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GenoCloud v2 — AI + Kubernetes</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Cabinet+Grotesk:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #03080f;
+    --surface: #071320;
+    --card: #0a1e30;
+    --border: #0d2d45;
+    --accent: #00d4ff;
+    --ai: #a78bfa;
+    --k8s: #326ce5;
+    --green: #00ff87;
+    --orange: #ff6b2b;
+    --text: #d4eaf7;
+    --muted: #4a7a95;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Cabinet Grotesk', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ANIMATED BG */
+  .bg-canvas {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  }
+  .bg-canvas canvas { position: absolute; inset: 0; }
+
+  /* HEADER */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(3,8,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .logo {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: -0.03em;
+  }
+  .logo .v2 { color: var(--ai); font-size: 13px; vertical-align: super; margin-left: 2px; }
+  .header-pills { display: flex; gap: 8px; }
+  .pill {
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+    letter-spacing: 0.06em;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .pill.ai { border-color: var(--ai); color: var(--ai); }
+  .pill.k8s { border-color: var(--k8s); color: #6ba3ff; }
+  .pill.live { border-color: var(--green); color: var(--green); }
+  .pill .dot { width:6px; height:6px; border-radius:50%; background:currentColor; animation: blink 1.5s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* NAV TABS */
+  .nav {
+    position: sticky; top: 60px; z-index: 90;
+    background: rgba(3,8,15,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex; gap: 2px;
+  }
+  .nav-btn {
+    background: none; border: none;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* LAYOUT */
+  .page { display: none; padding: 32px 40px; max-width: 1300px; margin: 0 auto; position: relative; z-index: 5; }
+  .page.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 28px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  @media(max-width:900px) { .grid-4{grid-template-columns:1fr 1fr} .grid-2,.grid-3{grid-template-columns:1fr} }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card.glow-ai { box-shadow: 0 0 30px rgba(167,139,250,0.07); border-color: rgba(167,139,250,0.2); }
+  .card.glow-k8s { box-shadow: 0 0 30px rgba(50,108,229,0.07); border-color: rgba(50,108,229,0.2); }
+  .card-label {
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .card-label .icon { font-size: 12px; }
+  .card-val {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: 36px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .card-sub { font-size: 10px; color: var(--muted); }
+  .accent-top { position:absolute; top:0; left:0; right:0; height:2px; }
+
+  /* SECTION TITLE */
+  .sec-title {
+    font-family: var(--display);
+    font-size: 16px; font-weight: 700;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text);
+  }
+  .sec-title .badge {
+    font-family: var(--mono);
+    font-size: 9px; padding: 3px 8px;
+    border-radius: 4px; letter-spacing: 0.08em;
+  }
+  .badge-ai { background: rgba(167,139,250,0.15); color: var(--ai); border: 1px solid rgba(167,139,250,0.25); }
+  .badge-k8s { background: rgba(50,108,229,0.15); color: #6ba3ff; border: 1px solid rgba(50,108,229,0.25); }
+  .badge-new { background: rgba(0,255,135,0.12); color: var(--green); border: 1px solid rgba(0,255,135,0.2); }
+
+  /* TABLE */
+  .tbl-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: var(--surface); padding: 10px 14px; text-align:left; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); }
+  td { padding: 11px 14px; border-bottom: 1px solid rgba(13,45,69,0.6); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(0,212,255,0.02); }
+  .gene { color: var(--accent); font-weight: 700; }
+  .impact { display:inline-block; padding:2px 7px; border-radius:4px; font-size:9px; font-weight:700; letter-spacing:0.05em; }
+  .HIGH { background:rgba(255,107,43,0.15); color:var(--orange); border:1px solid rgba(255,107,43,0.25); }
+  .MOD  { background:rgba(255,193,7,0.1);  color:#ffd700; border:1px solid rgba(255,193,7,0.2); }
+  .LOW  { background:rgba(0,255,135,0.1);  color:var(--green); border:1px solid rgba(0,255,135,0.2); }
+
+  /* AI INTERPRET BUTTON */
+  .ai-btn {
+    background: rgba(167,139,250,0.1);
+    border: 1px solid rgba(167,139,250,0.25);
+    color: var(--ai);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.04em;
+  }
+  .ai-btn:hover { background: rgba(167,139,250,0.2); transform: translateY(-1px); }
+
+  /* AI PANEL */
+  .ai-panel {
+    background: rgba(7,13,20,0.95);
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 28px;
+    display: none;
+  }
+  .ai-panel.visible { display: block; animation: fadeIn 0.3s ease; }
+  .ai-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+    font-size: 12px; font-weight: 700; color: var(--ai);
+  }
+  .ai-thinking {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted); font-size: 11px; padding: 12px;
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--ai);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ai-response {
+    font-size: 12px; line-height: 1.8;
+    color: var(--text);
+    border-left: 2px solid var(--ai);
+    padding-left: 14px;
+  }
+  .ai-response .risk { color: var(--orange); font-weight: 700; }
+  .ai-response .safe { color: var(--green); font-weight: 700; }
+  .ai-response .gene-ref { color: var(--accent); }
+
+  /* K8S PODS */
+  .pods-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .pod {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    transition: all 0.2s;
+  }
+  .pod:hover { border-color: var(--k8s); transform: translateY(-2px); }
+  .pod-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .pod-name { font-size: 10px; color: var(--accent); font-weight: 700; }
+  .pod-status { width: 8px; height: 8px; border-radius: 50%; }
+  .pod-status.running { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 2s infinite; }
+  .pod-status.pending { background: #ffd700; }
+  .pod-status.error   { background: var(--orange); }
+  .pod-type { font-size: 9px; color: var(--muted); margin-bottom: 6px; }
+  .pod-cpu { font-size: 11px; }
+  .cpu-bar { height: 3px; background: var(--surface); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .cpu-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--k8s), var(--accent)); transition: width 1s ease; }
+
+  /* K8S ARCH */
+  .k8s-arch { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 30px; margin-bottom: 28px; }
+  .k8s-cluster {
+    border: 2px dashed rgba(50,108,229,0.4);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    margin-top: 16px;
+  }
+  .cluster-label {
+    position: absolute; top: -10px; left: 20px;
+    background: var(--card);
+    padding: 0 8px;
+    font-size: 10px; color: #6ba3ff; letter-spacing: 0.08em;
+  }
+  .k8s-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .k8s-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 10px; text-align: center;
+    min-width: 110px;
+  }
+  .k8s-node .n-icon { font-size: 20px; margin-bottom: 4px; }
+  .k8s-node .n-label { color: var(--muted); font-size: 9px; }
+  .k8s-node .n-name { font-weight: 700; margin-top: 2px; }
+  .k8s-node.ai-node { border-color: rgba(167,139,250,0.3); }
+  .k8s-node.ai-node .n-name { color: var(--ai); }
+  .k8s-node.svc-node { border-color: rgba(50,108,229,0.3); }
+  .k8s-node.svc-node .n-name { color: #6ba3ff; }
+
+  /* CODE */
+  .code-block {
+    background: #020c14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .code-top {
+    background: var(--surface);
+    padding: 10px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .code-file { font-size: 11px; color: var(--accent); }
+  .code-tag { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  pre { padding: 20px; font-size: 11px; line-height: 1.75; overflow-x: auto; font-family: var(--mono); }
+  .kw{color:#ff79c6} .fn{color:#50fa7b} .str{color:#f1fa8c} .cm{color:#4a6a7a} .num{color:#bd93f9} .cls{color:var(--accent)} .dec{color:var(--ai)}
+
+  /* PIPELINE FLOW */
+  .flow { display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; margin-bottom: 28px; }
+  .flow-step {
+    display: flex; align-items: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    min-width: 140px;
+    flex-direction: column;
+    text-align: center;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .flow-step:hover { border-color: var(--accent); }
+  .flow-step.ai-step { border-color: rgba(167,139,250,0.3); }
+  .flow-step.k8s-step { border-color: rgba(50,108,229,0.3); }
+  .flow-icon { font-size: 22px; margin-bottom: 6px; }
+  .flow-name { font-size: 10px; font-weight: 700; margin-bottom: 2px; }
+  .flow-sub { font-size: 9px; color: var(--muted); }
+  .flow-arrow { color: var(--muted); padding: 0 6px; align-self: center; font-size: 16px; flex-shrink: 0; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* INPUT */
+  .chat-input-wrap {
+    display: flex; gap: 10px; margin-top: 16px;
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus { border-color: var(--ai); }
+  .chat-input::placeholder { color: var(--muted); }
+  .send-btn {
+    background: var(--ai);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .send-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+  /* ROADMAP */
+  .roadmap { display: flex; flex-direction: column; gap: 0; }
+  .rm-step { display: flex; gap: 18px; padding-bottom: 24px; position: relative; }
+  .rm-step:not(:last-child)::before { content:''; position:absolute; left:14px; top:30px; bottom:0; width:1px; background:var(--border); }
+  .rm-num {
+    width:30px; height:30px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; color:var(--accent);
+    flex-shrink:0; position:relative; z-index:2;
+  }
+  .rm-body { flex:1; padding-top:4px; }
+  .rm-title { font-weight:700; margin-bottom:4px; font-size:13px; }
+  .rm-desc { font-size:11px; color:var(--muted); line-height:1.65; }
+  .rm-pills { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .rm-pill { font-size:9px; padding:3px 8px; border-radius:4px; background:rgba(0,212,255,0.08); color:var(--accent); border:1px solid rgba(0,212,255,0.15); }
+  .rm-pill.ai { background:rgba(167,139,250,0.08); color:var(--ai); border-color:rgba(167,139,250,0.2); }
+  .rm-pill.k8s { background:rgba(50,108,229,0.08); color:#6ba3ff; border-color:rgba(50,108,229,0.2); }
+</style>
+</head>
+<body>
+
+<div class="bg-canvas"><canvas id="bgCanvas"></canvas></div>
+
+<header>
+  <div class="logo">GenoCloud<span class="v2">v2</span></div>
+  <div class="header-pills">
+    <span class="pill ai">🤖 Claude AI</span>
+    <span class="pill k8s">⎈ Kubernetes</span>
+    <span class="pill live"><span class="dot"></span> LIVE</span>
+  </div>
+</header>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showPage('dashboard',this)">📊 Dashboard</button>
+  <button class="nav-btn" onclick="showPage('ai',this)">🤖 AI Interpreter</button>
+  <button class="nav-btn" onclick="showPage('k8s',this)">⎈ Kubernetes</button>
+  <button class="nav-btn" onclick="showPage('code',this)">💻 Code</button>
+  <button class="nav-btn" onclick="showPage('roadmap',this)">🗺️ Roadmap</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="grid-4">
+    <div class="card"><div class="accent-top" style="background:var(--accent)"></div>
+      <div class="card-label"><span class="icon">🧬</span> Total Variants</div>
+      <div class="card-val" style="color:var(--accent)">12,847</div>
+      <div class="card-sub">chr1–chrY analyzed</div>
+    </div>
+    <div class="card"><div class="accent-top" style="background:var(--orange)"></div>
+      <div class="card-label"><span class="icon">⚠️</span> HIGH Impact</div>
+      <div class="card-val" style="color:var(--orange)">342</div>
+      <div class="card-sub">AI-flagged for review</div>
+    </div>
+    <div class="card glow-ai"><div class="accent-top" style="background:var(--ai)"></div>
+      <div class="card-label"><span class="icon">🤖</span> AI Interpretations</div>
+      <div class="card-val" style="color:var(--ai)">128</div>
+      <div class="card-sub">powered by Claude API</div>
+    </div>
+    <div class="card glow-k8s"><div class="accent-top" style="background:var(--k8s)"></div>
+      <div class="card-label"><span class="icon">⎈</span> K8s Pods Running</div>
+      <div class="card-val" style="color:#6ba3ff">8/8</div>
+      <div class="card-sub">all workers healthy</div>
+    </div>
+  </div>
+
+  <!-- Pipeline flow -->
+  <div class="sec-title">End-to-End Pipeline <span class="badge badge-k8s">K8S ORCHESTRATED</span> <span class="badge badge-ai">AI ENHANCED</span></div>
+  <div class="flow">
+    <div class="flow-step k8s-step"><div class="flow-icon">📁</div><div class="flow-name">FASTQ Input</div><div class="flow-sub">S3 / Local</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step k8s-step"><div class="flow-icon">🔬</div><div class="flow-name">FastQC</div><div class="flow-sub">K8s Job</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step k8s-step"><div class="flow-icon">🧵</div><div class="flow-name">BWA-MEM2</div><div class="flow-sub">K8s Job</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step k8s-step"><div class="flow-icon">🎯</div><div class="flow-name">GATK HC</div><div class="flow-sub">K8s Job</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step k8s-step"><div class="flow-icon">🏷️</div><div class="flow-name">SnpEff</div><div class="flow-sub">K8s Job</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step ai-step"><div class="flow-icon">🤖</div><div class="flow-name">Claude AI</div><div class="flow-sub">Interpretation</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="flow-icon">📊</div><div class="flow-name">Dashboard</div><div class="flow-sub">This UI</div></div>
+  </div>
+
+  <!-- Variants table -->
+  <div class="sec-title">High-Impact Variants <span class="badge badge-ai">CLICK FOR AI ANALYSIS</span></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Chr</th><th>Gene</th><th>Mutation</th><th>Impact</th><th>Allele Freq</th><th>ClinVar</th><th>AI Analysis</th></tr></thead>
+      <tbody id="varTable"></tbody>
+    </table>
+  </div>
+
+  <div class="ai-panel" id="quickAI">
+    <div class="ai-header">🤖 Claude AI — Variant Interpretation</div>
+    <div id="quickAIContent"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ AI PAGE -->
+<div id="page-ai" class="page">
+  <div class="grid-2">
+    <div class="card glow-ai">
+      <div class="card-label">🤖 AI Engine</div>
+      <div style="font-family:var(--display);font-size:22px;font-weight:900;color:var(--ai);margin-bottom:6px">Claude 3.5 Sonnet</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7">Integrated via Anthropic API. Analyzes each HIGH-impact variant, cross-references known pathogenicity databases, and generates plain-English clinical summaries for researchers.</div>
+    </div>
+    <div class="card">
+      <div class="card-label">📈 AI Stats This Run</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--muted)">Variants analyzed</span><span style="color:var(--ai)">342 HIGH</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--muted)">Flagged pathogenic</span><span style="color:var(--orange)">47</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--muted)">Avg response time</span><span style="color:var(--green)">1.2s</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--muted)">Confidence score</span><span style="color:var(--accent)">94.7%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">🤖 Ask AI About Any Variant <span class="badge badge-ai">LIVE · Claude API</span></div>
+  <div class="card glow-ai">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Type a gene name or variant to get an AI-powered clinical interpretation in real time.</div>
+    <div class="chat-input-wrap">
+      <input class="chat-input" id="aiQuery" placeholder="e.g. What is the clinical significance of BRCA1 c.68_69del?" />
+      <button class="send-btn" onclick="askAI()">Ask AI →</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="ai-btn" onclick="setQuery('Explain BRCA1 pathogenicity and cancer risk')">BRCA1 risk</button>
+      <button class="ai-btn" onclick="setQuery('What does KRAS G12V mutation mean for treatment?')">KRAS G12V</button>
+      <button class="ai-btn" onclick="setQuery('Is CFTR p.Phe508del treatable with current drugs?')">CFTR treatment</button>
+      <button class="ai-btn" onclick="setQuery('Explain what Ti/Tv ratio tells us about sequencing quality')">Ti/Tv ratio</button>
+    </div>
+  </div>
+
+  <div class="ai-panel" id="aiResponsePanel" style="margin-top:16px">
+    <div class="ai-header">🤖 Claude AI Response</div>
+    <div id="aiResponseContent"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ K8S PAGE -->
+<div id="page-k8s" class="page">
+  <div class="grid-3">
+    <div class="card glow-k8s">
+      <div class="card-label">⎈ Cluster Status</div>
+      <div style="font-family:var(--display);font-size:28px;font-weight:900;color:var(--green)">HEALTHY</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">All nodes operational</div>
+    </div>
+    <div class="card">
+      <div class="card-label">🖥️ Nodes</div>
+      <div style="font-family:var(--display);font-size:28px;font-weight:900;color:#6ba3ff">3</div>
+      <div style="font-size:11px;color:var(--muted)">worker nodes · 48 vCPU total</div>
+    </div>
+    <div class="card">
+      <div class="card-label">⚡ Jobs Completed</div>
+      <div style="font-family:var(--display);font-size:28px;font-weight:900;color:var(--green)">1,247</div>
+      <div style="font-size:11px;color:var(--muted)">since cluster start</div>
+    </div>
+  </div>
+
+  <div class="sec-title">Active Pods <span class="badge badge-k8s">LIVE STATUS</span></div>
+  <div class="pods-grid" id="podsGrid"></div>
+
+  <div class="sec-title">Cluster Architecture</div>
+  <div class="k8s-arch">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">GenoCloud Kubernetes Cluster</div>
+    <div class="k8s-cluster">
+      <div class="cluster-label">⎈ GENOCLOUDD-CLUSTER</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:12px;letter-spacing:0.06em">NAMESPACE: bioinformatics</div>
+      <div class="k8s-row">
+        <div class="k8s-node svc-node"><div class="n-icon">🌐</div><div class="n-label">Service</div><div class="n-name">API Gateway</div></div>
+        <div class="k8s-node svc-node"><div class="n-icon">⚖️</div><div class="n-label">Service</div><div class="n-name">Load Balancer</div></div>
+        <div class="k8s-node ai-node"><div class="n-icon">🤖</div><div class="n-label">Deployment</div><div class="n-name">AI Service</div></div>
+        <div class="k8s-node"><div class="n-icon">📊</div><div class="n-label">Deployment</div><div class="n-name">Dashboard</div></div>
+      </div>
+      <div class="k8s-row">
+        <div class="k8s-node svc-node"><div class="n-icon">🔬</div><div class="n-label">Job</div><div class="n-name">FastQC</div></div>
+        <div class="k8s-node svc-node"><div class="n-icon">🧵</div><div class="n-label">Job</div><div class="n-name">BWA-MEM2</div></div>
+        <div class="k8s-node svc-node"><div class="n-icon">🎯</div><div class="n-label">Job</div><div class="n-name">GATK HC</div></div>
+        <div class="k8s-node svc-node"><div class="n-icon">🏷️</div><div class="n-label">Job</div><div class="n-name">SnpEff</div></div>
+        <div class="k8s-node"><div class="n-icon">🗄️</div><div class="n-label">StatefulSet</div><div class="n-name">PostgreSQL</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ CODE PAGE -->
+<div id="page-code" class="page">
+
+  <div class="code-block">
+    <div class="code-top"><span class="code-file">ai_interpreter.py</span><span class="code-tag">🤖 Claude API Integration</span></div>
+    <pre><span class="cm"># AI-powered variant interpretation using Claude API</span>
+<span class="kw">import</span> anthropic
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+
+client = anthropic.<span class="fn">Anthropic</span>()  <span class="cm"># uses ANTHROPIC_API_KEY env var</span>
+
+<span class="dec">@dataclass</span>
+<span class="kw">class</span> <span class="cls">Variant</span>:
+    gene: str; chrom: str; pos: int
+    ref: str; alt: str; impact: str
+    af: float; clinvar: str
+
+<span class="kw">class</span> <span class="cls">AIVariantInterpreter</span>:
+    SYSTEM = <span class="str">"""You are a clinical genomics AI assistant.
+    Given a genetic variant, provide:
+    1. Clinical significance summary
+    2. Associated diseases/conditions
+    3. Actionability (is there a treatment?)
+    4. Confidence level
+    Keep responses concise and evidence-based."""</span>
+
+    <span class="kw">def</span> <span class="fn">interpret</span>(self, variant: <span class="cls">Variant</span>) -> str:
+        prompt = <span class="str">f"""Interpret this variant:
+        Gene: {variant.gene}
+        Change: {variant.ref} → {variant.alt}
+        Impact: {variant.impact}
+        Allele Freq: {variant.af:.1%}
+        ClinVar: {variant.clinvar}
+        Position: {variant.chrom}:{variant.pos}"""</span>
+
+        msg = client.messages.<span class="fn">create</span>(
+            model=<span class="str">"claude-sonnet-4-20250514"</span>,
+            max_tokens=<span class="num">500</span>,
+            system=self.SYSTEM,
+            messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: prompt}]
+        )
+        <span class="kw">return</span> msg.content[<span class="num">0</span>].text
+
+    <span class="kw">def</span> <span class="fn">batch_interpret</span>(self, variants: list[<span class="cls">Variant</span>]) -> dict:
+        <span class="cm">"""Interpret all HIGH-impact variants"""</span>
+        results = {}
+        <span class="kw">for</span> v <span class="kw">in</span> variants:
+            <span class="kw">if</span> v.impact == <span class="str">"HIGH"</span>:
+                results[v.gene] = self.<span class="fn">interpret</span>(v)
+        <span class="kw">return</span> results</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-top"><span class="code-file">k8s/pipeline-job.yaml</span><span class="code-tag">⎈ Kubernetes Job Definition</span></div>
+    <pre><span class="cm"># Kubernetes Job — GATK Variant Calling</span>
+<span class="kw">apiVersion</span>: batch/v1
+<span class="kw">kind</span>: Job
+<span class="kw">metadata</span>:
+  <span class="fn">name</span>: gatk-variant-caller
+  <span class="fn">namespace</span>: bioinformatics
+  <span class="fn">labels</span>:
+    <span class="fn">app</span>: genocloudd
+    <span class="fn">component</span>: variant-calling
+<span class="kw">spec</span>:
+  <span class="fn">parallelism</span>: <span class="num">4</span>        <span class="cm"># Run 4 chromosomes in parallel</span>
+  <span class="fn">completions</span>: <span class="num">24</span>       <span class="cm"># One per chromosome</span>
+  <span class="fn">template</span>:
+    <span class="fn">spec</span>:
+      <span class="fn">containers</span>:
+      - <span class="fn">name</span>: gatk
+        <span class="fn">image</span>: broadinstitute/gatk:<span class="num">4.4.0.0</span>
+        <span class="fn">resources</span>:
+          <span class="fn">requests</span>:
+            <span class="fn">memory</span>: <span class="str">"8Gi"</span>
+            <span class="fn">cpu</span>: <span class="str">"4"</span>
+          <span class="fn">limits</span>:
+            <span class="fn">memory</span>: <span class="str">"16Gi"</span>
+            <span class="fn">cpu</span>: <span class="str">"8"</span>
+        <span class="fn">env</span>:
+        - <span class="fn">name</span>: SAMPLE_ID
+          <span class="fn">valueFrom</span>:
+            <span class="fn">fieldRef</span>: {<span class="fn">fieldPath</span>: metadata.name}
+        <span class="fn">command</span>: [<span class="str">"python"</span>, <span class="str">"/app/run_gatk.py"</span>]
+        <span class="fn">volumeMounts</span>:
+        - <span class="fn">name</span>: ref-genome
+          <span class="fn">mountPath</span>: <span class="str">"/ref"</span>
+      <span class="fn">restartPolicy</span>: OnFailure
+      <span class="fn">volumes</span>:
+      - <span class="fn">name</span>: ref-genome
+        <span class="fn">persistentVolumeClaim</span>:
+          <span class="fn">claimName</span>: hg38-pvc</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-top"><span class="code-file">k8s/ai-deployment.yaml</span><span class="code-tag">⎈ AI Service Deployment</span></div>
+    <pre><span class="cm"># Deploy AI Interpreter as a K8s microservice</span>
+<span class="kw">apiVersion</span>: apps/v1
+<span class="kw">kind</span>: Deployment
+<span class="kw">metadata</span>:
+  <span class="fn">name</span>: ai-interpreter
+  <span class="fn">namespace</span>: bioinformatics
+<span class="kw">spec</span>:
+  <span class="fn">replicas</span>: <span class="num">3</span>             <span class="cm"># 3 AI pods for high availability</span>
+  <span class="fn">selector</span>:
+    <span class="fn">matchLabels</span>: {<span class="fn">app</span>: ai-interpreter}
+  <span class="fn">template</span>:
+    <span class="fn">spec</span>:
+      <span class="fn">containers</span>:
+      - <span class="fn">name</span>: ai-service
+        <span class="fn">image</span>: genocloudd/ai-interpreter:<span class="num">1.0</span>
+        <span class="fn">ports</span>:
+        - <span class="fn">containerPort</span>: <span class="num">8080</span>
+        <span class="fn">env</span>:
+        - <span class="fn">name</span>: ANTHROPIC_API_KEY
+          <span class="fn">valueFrom</span>:
+            <span class="fn">secretKeyRef</span>:
+              <span class="fn">name</span>: api-secrets
+              <span class="fn">key</span>: anthropic-key    <span class="cm"># stored in K8s Secret</span>
+        <span class="fn">livenessProbe</span>:
+          <span class="fn">httpGet</span>: {<span class="fn">path</span>: /health, <span class="fn">port</span>: <span class="num">8080</span>}
+          <span class="fn">initialDelaySeconds</span>: <span class="num">10</span></pre>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ ROADMAP -->
+<div id="page-roadmap" class="page">
+  <div class="sec-title">Build Roadmap <span class="badge badge-new">UPDATED WITH AI + K8S</span></div>
+  <div class="roadmap">
+    <div class="rm-step"><div class="rm-num">1</div><div class="rm-body">
+      <div class="rm-title">Local pipeline setup</div>
+      <div class="rm-desc">Install GATK, BWA-MEM2, FastQC locally. Run on public NA12878 dataset. Store results in SQLite. Get the biology working first.</div>
+      <div class="rm-pills"><span class="rm-pill">Python</span><span class="rm-pill">GATK</span><span class="rm-pill">BWA-MEM2</span><span class="rm-pill">SQLite</span></div>
+    </div></div>
+    <div class="rm-step"><div class="rm-num">2</div><div class="rm-body">
+      <div class="rm-title">Add Claude AI interpretation</div>
+      <div class="rm-desc">Sign up for Anthropic API (free credits for new users). Use the ai_interpreter.py code shown. Call Claude for every HIGH-impact variant found.</div>
+      <div class="rm-pills"><span class="rm-pill ai">Claude API</span><span class="rm-pill ai">anthropic SDK</span><span class="rm-pill">FastAPI</span></div>
+    </div></div>
+    <div class="rm-step"><div class="rm-num">3</div><div class="rm-body">
+      <div class="rm-title">Dockerize each pipeline step</div>
+      <div class="rm-desc">Create a Dockerfile for each tool (FastQC, BWA, GATK, AI service). Test with docker-compose locally before moving to K8s.</div>
+      <div class="rm-pills"><span class="rm-pill">Docker</span><span class="rm-pill">docker-compose</span><span class="rm-pill">DockerHub</span></div>
+    </div></div>
+    <div class="rm-step"><div class="rm-num">4</div><div class="rm-body">
+      <div class="rm-title">Deploy on Kubernetes (free locally)</div>
+      <div class="rm-desc">Install minikube (100% free, runs K8s on your laptop). Apply the YAML files from the Code tab. This gives you real K8s experience without any cloud costs.</div>
+      <div class="rm-pills"><span class="rm-pill k8s">minikube</span><span class="rm-pill k8s">kubectl</span><span class="rm-pill k8s">K8s Jobs</span><span class="rm-pill k8s">Deployments</span></div>
+    </div></div>
+    <div class="rm-step"><div class="rm-num">5</div><div class="rm-body">
+      <div class="rm-title">Build this dashboard</div>
+      <div class="rm-desc">Connect the dashboard to your FastAPI backend. Show real variant data, live K8s pod status, and AI interpretations. Host on GitHub Pages for free.</div>
+      <div class="rm-pills"><span class="rm-pill">HTML/JS</span><span class="rm-pill">FastAPI</span><span class="rm-pill ai">Claude API</span><span class="rm-pill">GitHub Pages</span></div>
+    </div></div>
+    <div class="rm-step"><div class="rm-num">6</div><div class="rm-body">
+      <div class="rm-title">Scale to cloud (optional, free tier)</div>
+      <div class="rm-desc">Move minikube → AWS EKS free tier or GKE Autopilot. Swap SQLite → DynamoDB. This is the "cloud" upgrade you do after the project works locally.</div>
+      <div class="rm-pills"><span class="rm-pill k8s">EKS / GKE</span><span class="rm-pill">AWS Free Tier</span><span class="rm-pill">DynamoDB</span></div>
+    </div></div>
+  </div>
+
+</div>
+
+<script>
+// ── BACKGROUND ANIMATION ──────────────────────────
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+for (let i = 0; i < 60; i++) {
+  particles.push({ x: Math.random()*innerWidth, y: Math.random()*innerHeight,
+    vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
+    r: Math.random()*1.5+0.5, a: Math.random() });
+}
+function drawBG() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = canvas.width;
+    if (p.x > canvas.width) p.x = 0;
+    if (p.y < 0) p.y = canvas.height;
+    if (p.y > canvas.height) p.y = 0;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(0,212,255,${p.a * 0.3})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(drawBG);
+}
+drawBG();
+
+// ── NAVIGATION ────────────────────────────────────
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'k8s') renderPods();
+}
+
+// ── VARIANT TABLE ─────────────────────────────────
+const variants = [
+  { chr:'chr17', gene:'BRCA1', change:'c.68_69del',  impact:'HIGH', af:0.48, cv:'Pathogenic',
+    ai:'BRCA1 frameshift deletion associated with significantly elevated breast and ovarian cancer risk (lifetime risk ~70%). Loss of function in tumor suppressor. PARP inhibitor therapy (olaparib) is clinically indicated.' },
+  { chr:'chr13', gene:'BRCA2', change:'p.Glu1308*',  impact:'HIGH', af:0.51, cv:'Pathogenic',
+    ai:'BRCA2 nonsense mutation causing premature stop codon. Impairs homologous recombination DNA repair. Associated with breast, ovarian, pancreatic and prostate cancers. Consider platinum-based chemotherapy.' },
+  { chr:'chr7',  gene:'CFTR',  change:'p.Phe508del',  impact:'HIGH', af:0.50, cv:'Pathogenic',
+    ai:'Most common cystic fibrosis mutation globally (present in ~70% of CF patients). Causes misfolding of CFTR protein. Highly actionable: elexacaftor/tezacaftor/ivacaftor (Trikafta) approved and effective.' },
+  { chr:'chr12', gene:'KRAS',  change:'p.Gly12Val',  impact:'HIGH', af:0.34, cv:'Likely Path.',
+    ai:'KRAS G12V is an oncogenic driver mutation. Constitutively activates RAS-MAPK pathway. Found in NSCLC, pancreatic and colorectal cancers. KRAS G12C inhibitors (sotorasib) do not cover G12V; MEK inhibitors under investigation.' },
+  { chr:'chr5',  gene:'APC',   change:'p.Ala1556Gly', impact:'MOD',  af:0.22, cv:'VUS',
+    ai:'APC variant of uncertain significance. APC is the key tumor suppressor in colorectal cancer. This missense change is not yet well-characterized. Recommend genetic counseling and surveillance colonoscopy.' },
+];
+
+const tbody = document.getElementById('varTable');
+variants.forEach((v,i) => {
+  const pct = Math.round(v.af*100);
+  tbody.innerHTML += `<tr>
+    <td style="font-size:10px;color:var(--muted)">${v.chr}</td>
+    <td class="gene">${v.gene}</td>
+    <td style="font-size:10px">${v.change}</td>
+    <td><span class="impact ${v.impact}">${v.impact}</span></td>
+    <td><div style="display:flex;align-items:center;gap:8px">
+      <div style="width:60px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:2px"></div>
+      </div>
+      <span style="font-size:10px;color:var(--muted)">${pct}%</span>
+    </div></td>
+    <td style="font-size:10px;color:${v.cv==='Pathogenic'?'var(--orange)':v.cv==='Benign'?'var(--green)':'var(--muted)'}">${v.cv}</td>
+    <td><button class="ai-btn" onclick="showQuickAI(${i})">🤖 Analyze</button></td>
+  </tr>`;
+});
+
+function showQuickAI(i) {
+  const v = variants[i];
+  const panel = document.getElementById('quickAI');
+  const content = document.getElementById('quickAIContent');
+  panel.classList.add('visible');
+  content.innerHTML = `<div class="ai-thinking"><div class="spinner"></div>Claude is interpreting ${v.gene} variant...</div>`;
+  setTimeout(() => {
+    content.innerHTML = `<div class="ai-response">${v.ai}</div>`;
+    panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 1200);
+}
+
+// ── AI PAGE ───────────────────────────────────────
+function setQuery(q) { document.getElementById('aiQuery').value = q; }
+
+async function askAI() {
+  const query = document.getElementById('aiQuery').value.trim();
+  if (!query) return;
+  const panel = document.getElementById('aiResponsePanel');
+  const content = document.getElementById('aiResponseContent');
+  panel.classList.add('visible');
+  content.innerHTML = `<div class="ai-thinking"><div class="spinner"></div>Querying Claude API...</div>`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: 'You are a clinical genomics expert. Answer questions about genetic variants, genes, and bioinformatics concisely and accurately. Use plain English alongside technical terms. Keep responses under 200 words.',
+        messages: [{ role: 'user', content: query }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'No response received.';
+    content.innerHTML = `<div class="ai-response">${text.replace(/\n/g,'<br>')}</div>`;
+  } catch (e) {
+    // Fallback demo response
+    const demos = {
+      'BRCA1': '<span class="risk">BRCA1</span> is a tumor suppressor gene on chromosome 17. Loss-of-function mutations significantly elevate breast cancer risk (lifetime ~70%) and ovarian cancer risk (~44%). The protein repairs double-strand DNA breaks via homologous recombination. <span class="safe">PARP inhibitors</span> like olaparib exploit this deficiency therapeutically.',
+      'KRAS': '<span class="gene-ref">KRAS G12V</span> constitutively activates the RAS-MAPK signaling pathway, driving uncontrolled cell proliferation. It\'s found in ~25% of all cancers. Unlike G12C, G12V lacks a reactive cysteine, making direct inhibition harder. MEK inhibitors and combination immunotherapy are active areas of research.',
+      'Ti/Tv': 'The <span class="safe">Ti/Tv (Transition/Transversion) ratio</span> measures sequencing quality. In whole-genome sequencing, an expected ratio of 2.0–2.5 indicates good quality. A lower ratio suggests excess false positives or contamination. Your sample at 2.14 is within the expected range — this is a green flag.',
+    };
+    let response = 'I analyzed your query about genomic variants. For a real-time response, connect your Anthropic API key in the deployment configuration. This demonstrates the integration point where Claude would provide clinical interpretation.';
+    for (const [key, val] of Object.entries(demos)) {
+      if (query.toUpperCase().includes(key)) { response = val; break; }
+    }
+    content.innerHTML = `<div class="ai-response">${response}</div>`;
+  }
+}
+
+document.getElementById('aiQuery').addEventListener('keydown', e => { if(e.key==='Enter') askAI(); });
+
+// ── K8S PODS ──────────────────────────────────────
+const podData = [
+  { name:'fastqc-0',    type:'Job Worker',    status:'running', cpu:34 },
+  { name:'bwa-mem2-0',  type:'Job Worker',    status:'running', cpu:87 },
+  { name:'bwa-mem2-1',  type:'Job Worker',    status:'running', cpu:82 },
+  { name:'gatk-hc-0',   type:'Job Worker',    status:'running', cpu:91 },
+  { name:'gatk-hc-1',   type:'Job Worker',    status:'running', cpu:88 },
+  { name:'snpeff-0',    type:'Job Worker',    status:'pending', cpu:0  },
+  { name:'ai-svc-0',    type:'AI Deployment', status:'running', cpu:22 },
+  { name:'dashboard-0', type:'Deployment',    status:'running', cpu:8  },
+];
+function renderPods() {
+  const grid = document.getElementById('podsGrid');
+  grid.innerHTML = '';
+  podData.forEach(p => {
+    grid.innerHTML += `<div class="pod">
+      <div class="pod-header">
+        <div class="pod-name">${p.name}</div>
+        <div class="pod-status ${p.status}"></div>
+      </div>
+      <div class="pod-type">${p.type}</div>
+      <div class="pod-cpu">CPU: ${p.cpu}%</div>
+      <div class="cpu-bar"><div class="cpu-fill" style="width:${p.cpu}%"></div></div>
+    </div>`;
+  });
+}
+</script>
+</body>
+</html>
